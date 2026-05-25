@@ -31,6 +31,17 @@ def _scrape_with_requests(url: str) -> Optional[ScrapeResult]:
         return None
 
 
+def _extract_image_url(image) -> Optional[str]:
+    """Normaliza el campo 'image' del JSON-LD, que puede ser string, dict o lista."""
+    if isinstance(image, str):
+        return image
+    if isinstance(image, dict):
+        return image.get("contentUrl") or image.get("url")
+    if isinstance(image, list) and image:
+        return _extract_image_url(image[0])
+    return None
+
+
 def _extract(soup) -> Optional[ScrapeResult]:
     # Strategy 1: JSON-LD schema.org/Product
     for script in soup.find_all("script", type="application/ld+json"):
@@ -46,7 +57,7 @@ def _extract(soup) -> Optional[ScrapeResult]:
                         price=float(str(price_raw).replace(",", ".")),
                         currency=offers.get("priceCurrency", "EUR"),
                         name=data.get("name", "Producto"),
-                        image_url=data.get("image"),
+                        image_url=_extract_image_url(data.get("image")),
                     )
         except Exception:
             continue
