@@ -8,9 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # /srv holds the project root so "from app.x import y" imports work
 WORKDIR /srv
+# Tell Playwright to skip downloading its own browser — we use system Chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 playwright install-deps chromium
+RUN pip install --no-cache-dir -r requirements.txt
 
 RUN useradd -m -u 1000 appuser
 USER appuser
