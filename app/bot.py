@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import threading
 from typing import Optional
@@ -213,32 +214,46 @@ async def _ayuda(update, context):
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
-def run_bot() -> None:
-    """Starts the Telegram bot in its own event loop (call from a daemon thread).
+async def _bot_main() -> None:
+    """Coroutine that runs the bot using PTB's low-level API.
 
-    PTB v20+ run_polling() is synchronous — it calls asyncio.run() internally.
-    We must NOT await it from inside an already-running loop; just call it
-    directly from this thread function so PTB manages its own event loop.
+    run_polling() internally calls asyncio.run() which conflicts with an
+    already-running loop. Instead we use app.start() + updater.start_polling()
+    directly on our own event loop and await a Future that never resolves
+    (the daemon thread is killed when the process exits).
     """
+    from telegram.ext import Application, CommandHandler, MessageHandler, filters
+
+    app = Application.builder().token(settings.telegram_bot_token).build()
+    app.add_handler(CommandHandler("start", _start))
+    app.add_handler(CommandHandler("lista", _lista))
+    app.add_handler(CommandHandler("add", _add))
+    app.add_handler(CommandHandler("precio", _precio))
+    app.add_handler(CommandHandler("borrar", _borrar))
+    app.add_handler(CommandHandler("ayuda", _ayuda))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _handle_text))
+
+    async with app:
+        await app.start()
+        await app.updater.start_polling(stop_signals=None)
+        logger.info("Telegram bot started (polling)")
+        await asyncio.Future()  # run forever — daemon thread killed on process exit
+
+
+def run_bot() -> None:
+    """Starts the Telegram bot in its own event loop (call from a daemon thread)."""
     if not settings.telegram_bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN not set — Telegram bot disabled.")
         return
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        from telegram.ext import Application, CommandHandler, MessageHandler, filters
-
-        app = Application.builder().token(settings.telegram_bot_token).build()
-        app.add_handler(CommandHandler("start", _start))
-        app.add_handler(CommandHandler("lista", _lista))
-        app.add_handler(CommandHandler("add", _add))
-        app.add_handler(CommandHandler("precio", _precio))
-        app.add_handler(CommandHandler("borrar", _borrar))
-        app.add_handler(CommandHandler("ayuda", _ayuda))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _handle_text))
-        # run_polling() calls asyncio.run() internally — no await, no manual loop
-        app.run_polling(stop_signals=None)
+        loop.run_until_complete(_bot_main())
     except Exception as e:
         logger.error(f"Telegram bot crashed: {e}")
+    finally:
+        loop.close()
 
 
 def start_bot_thread() -> None:
