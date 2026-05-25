@@ -10,6 +10,14 @@ _browser_lock = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
+# Detectar disponibilidad de playwright una sola vez al importar
+try:
+    import playwright  # noqa: F401
+    _PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    _PLAYWRIGHT_AVAILABLE = False
+    logger.warning("Playwright no está instalado — el scraping JS está desactivado en esta arquitectura.")
+
 # System Chromium paths — Playwright's bundled binary has no ARM32 build
 SYSTEM_CHROMIUM_PATHS = [
     "/usr/bin/chromium-browser",  # Raspberry Pi OS
@@ -69,12 +77,15 @@ def scrape(url: str) -> Optional[ScrapeResult]:
         )
         return None
 
+    if not _PLAYWRIGHT_AVAILABLE:
+        return None
+
     try:
         from playwright.sync_api import sync_playwright
         from bs4 import BeautifulSoup
         from app.scrapers.generic import _extract
     except ImportError as e:
-        logger.error(f"Missing dependency for js_scraper: {e}")
+        logger.warning(f"js_scraper: dependencia no disponible — {e}")
         return None
 
     with _browser_lock:
