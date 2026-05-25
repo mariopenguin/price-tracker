@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  price-tracker:
+    build: .
+    container_name: price-tracker
+    restart: unless-stopped
+    ports:
+      - "8766:8766"
+    volumes:
+      - price_tracker_data:/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - CHECK_INTERVAL_HOURS=${CHECK_INTERVAL_HOURS}
+      - FIRST_ADMIN_EMAIL=${FIRST_ADMIN_EMAIL}
+      - FIRST_ADMIN_PASSWORD=${FIRST_ADMIN_PASSWORD}
+volumes:
+  price_tracker_data:

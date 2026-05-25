@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Price Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% if user %}
+  <nav>
+    <a href="/" class="nav-brand">💸 Price Tracker</a>
+    <div class="nav-links">
+      <a href="/">Dashboard</a>
+      <a href="/product/add">+ Añadir</a>
+      <a href="/settings">Ajustes</a>
+      {% if user.is_admin %}<a href="/admin">Admin</a>{% endif %}
+      <form method="post" action="/logout" style="display:inline">
+        <button type="submit" class="btn-link">Salir</button>
+      </form>
+    </div>
+  </nav>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

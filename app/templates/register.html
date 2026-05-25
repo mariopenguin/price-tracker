@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Registro — Price Tracker{% endblock %}
+{% block content %}
+<div class="form-card">
+  <h1>Crear cuenta</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/register">
+    <label>Código de invitación
+      <input type="text" name="code" value="{{ code }}" required placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+    </label>
+    <label>Email
+      <input type="email" name="email" required placeholder="tu@email.com">
+    </label>
+    <label>Nombre de usuario
+      <input type="text" name="username" required placeholder="tu_usuario">
+    </label>
+    <label>Contraseña
+      <input type="password" name="password" required minlength="8" placeholder="Mínimo 8 caracteres">
+    </label>
+    <button type="submit">Registrarse</button>
+  </form>
+  <p style="margin-top:1rem"><a href="/login">← Volver al login</a></p>
+</div>
+{% endblock %}

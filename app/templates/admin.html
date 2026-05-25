@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Admin — Price Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Panel de administración</h1>
+  <form method="post" action="/admin/invite">
+    <button type="submit" class="btn">+ Generar código de invitación</button>
+  </form>
+</div>
+
+<div class="admin-grid">
+
+  <!-- Users table -->
+  <div class="admin-card">
+    <h2>Usuarios ({{ users | length }})</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Telegram</th>
+            <th>Registro</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.username }}</td>
+            <td style="font-size:0.85rem;color:var(--muted)">{{ u.email }}</td>
+            <td>
+              {% if u.is_admin %}
+              <span class="badge-admin">Admin</span>
+              {% else %}
+              <span style="color:var(--muted);font-size:0.85rem">Usuario</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.telegram_chat_id %}
+              <span class="badge-used">Vinculado</span>
+              {% else %}
+              <span style="color:var(--muted);font-size:0.82rem">—</span>
+              {% endif %}
+            </td>
+            <td style="font-size:0.82rem;color:var(--muted)">{{ u.created_at.strftime("%d/%m/%Y") }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Invite codes table -->
+  <div class="admin-card">
+    <h2>Códigos de invitación (últimos 20)</h2>
+    {% if codes %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Estado</th>
+            <th>Creado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in codes %}
+          <tr>
+            <td>
+              <span class="code-pill">{{ c.code }}</span>
+            </td>
+            <td>
+              {% if c.used_by %}
+              <span class="badge-used">Usado</span>
+              {% else %}
+              <span class="badge-pending">Disponible</span>
+              {% endif %}
+            </td>
+            <td style="font-size:0.82rem;color:var(--muted)">{{ c.created_at.strftime("%d/%m/%Y") }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="no-history">No hay códigos generados aún.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

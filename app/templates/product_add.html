@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Añadir producto — Price Tracker{% endblock %}
+{% block content %}
+<div class="form-card">
+  <h1>Añadir producto</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <p class="hint">Pega la URL del producto. La app extraerá el nombre, imagen y precio automáticamente.</p>
+  <form method="post" action="/product/add">
+    <label>URL del producto
+      <input type="url" name="url" required autofocus
+             placeholder="https://www.amazon.es/dp/...">
+    </label>
+    <button type="submit">Añadir y obtener precio</button>
+  </form>
+  <p style="margin-top:1rem"><a href="/">← Volver al dashboard</a></p>
+</div>
+{% endblock %}

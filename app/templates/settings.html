@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Ajustes — Price Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Ajustes</h1>
+</div>
+
+<div class="settings-layout">
+
+  <!-- Account info -->
+  <div class="settings-card">
+    <h2>Información de la cuenta</h2>
+    <div class="info-row">
+      <span class="label">Usuario</span>
+      <span class="value">{{ user.username }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Email</span>
+      <span class="value">{{ user.email }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Rol</span>
+      <span class="value">{% if user.is_admin %}<span class="badge-admin">Admin</span>{% else %}Usuario{% endif %}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Miembro desde</span>
+      <span class="value">{{ user.created_at.strftime("%d/%m/%Y") }}</span>
+    </div>
+  </div>
+
+  <!-- Telegram -->
+  <div class="settings-card">
+    <h2>Telegram</h2>
+    {% if user.telegram_chat_id %}
+    <p style="font-size:0.9rem;color:var(--success);margin-bottom:0.75rem">
+      ✅ Cuenta vinculada (chat ID: <code style="font-size:0.82rem">{{ user.telegram_chat_id }}</code>)
+    </p>
+    <p style="font-size:0.85rem;color:var(--muted)">
+      Recibirás alertas de precio a través del bot de Telegram.
+    </p>
+    {% else %}
+    <p style="font-size:0.9rem;color:var(--muted);margin-bottom:0.75rem">
+      No tienes Telegram vinculado. Para recibir notificaciones de precios:
+    </p>
+    <ol style="font-size:0.88rem;color:var(--muted);padding-left:1.25rem;line-height:2">
+      <li>Busca el bot en Telegram</li>
+      <li>Envía <code style="background:var(--bg);padding:0.1rem 0.4rem;border-radius:4px">/start</code></li>
+      <li>Introduce tu código de invitación cuando te lo pida</li>
+    </ol>
+    {% endif %}
+  </div>
+
+  <!-- Change password -->
+  <div class="settings-card">
+    <h2>Cambiar contraseña</h2>
+    {% if error %}<p class="error" style="margin-bottom:1rem">{{ error }}</p>{% endif %}
+    {% if success %}<p class="success-msg" style="margin-bottom:1rem">{{ success }}</p>{% endif %}
+    <form method="post" action="/settings/password">
+      <label>Contraseña actual
+        <input type="password" name="current_password" required>
+      </label>
+      <label>Nueva contraseña
+        <input type="password" name="new_password" required minlength="8" placeholder="Mínimo 8 caracteres">
+      </label>
+      <button type="submit">Actualizar contraseña</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

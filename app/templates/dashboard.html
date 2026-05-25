@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Price Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Mis productos</h1>
+  <a href="/product/add" class="btn">+ Añadir producto</a>
+</div>
+
+{% if not products_data %}
+  <p class="empty">No tienes productos trackeados. <a href="/product/add">Añade uno</a>.</p>
+{% else %}
+<div class="product-grid">
+  {% for item in products_data %}
+  {% set p = item.product %}
+  <div class="product-card">
+    {% if p.image_url %}
+    <img src="{{ p.image_url }}" alt="{{ p.name }}" class="product-thumb">
+    {% else %}
+    <div class="product-thumb-placeholder">📦</div>
+    {% endif %}
+    <div class="product-info">
+      <a href="/product/{{ p.id }}"><h2>{{ p.name }}</h2></a>
+      <p class="price">
+        {% if p.current_price %}
+          {{ "%.2f"|format(p.current_price|float) }} €
+          {% if item.change is not none %}
+            {% if item.change < 0 %}
+              <span class="badge down">▼ {{ "%.1f"|format(item.change|abs) }}%</span>
+            {% elif item.change > 0 %}
+              <span class="badge up">▲ {{ "%.1f"|format(item.change) }}%</span>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          <span class="muted">Sin datos aún</span>
+        {% endif %}
+      </p>
+      <p class="url"><a href="{{ p.url }}" target="_blank" rel="noopener">Ver en tienda ↗</a></p>
+    </div>
+    <form method="post" action="/product/{{ p.id }}/delete"
+          onsubmit="return confirm('¿Eliminar este producto y todo su histórico?')">
+      <button type="submit" class="btn-danger-sm" title="Eliminar">✕</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
