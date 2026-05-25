@@ -10,7 +10,6 @@ bcrypt==3.2.2
 PyJWT==2.8.0
 requests==2.32.2
 beautifulsoup4==4.12.3
-playwright>=1.44.0
 APScheduler==3.10.4
 python-telegram-bot==21.2
 pydantic-settings==2.2.1

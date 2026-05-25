@@ -13,6 +13,9 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Playwright no tiene wheel para ARM32; el intento falla silenciosamente.
+# En amd64 se instala correctamente y activa el scraper JS.
+RUN pip install --no-cache-dir playwright || echo "playwright no disponible en esta arquitectura, js_scraper desactivado"
 
 RUN useradd -m -u 1000 appuser
 USER appuser
