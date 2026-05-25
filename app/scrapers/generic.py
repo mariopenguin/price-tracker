@@ -11,11 +11,8 @@ HEADERS = {
 
 
 def scrape(url: str) -> Optional[ScrapeResult]:
-    """Level 1: requests + BS4. Level 2: Selenium if level 1 fails."""
-    result = _scrape_with_requests(url)
-    if result:
-        return result
-    return _scrape_with_selenium(url)
+    """requests + BS4: JSON-LD, microdata, Open Graph."""
+    return _scrape_with_requests(url)
 
 
 def _scrape_with_requests(url: str) -> Optional[ScrapeResult]:
@@ -26,35 +23,6 @@ def _scrape_with_requests(url: str) -> Optional[ScrapeResult]:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(resp.text, "lxml")
         return _extract(soup)
-    except Exception:
-        return None
-
-
-def _scrape_with_selenium(url: str) -> Optional[ScrapeResult]:
-    """Starts Chromium headless, extracts price, closes immediately to free RAM."""
-    try:
-        from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options
-        from selenium.webdriver.chrome.service import Service
-        from bs4 import BeautifulSoup
-        import time
-
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.binary_location = "/usr/bin/chromium"
-
-        service = Service("/usr/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=options)
-        try:
-            driver.get(url)
-            time.sleep(3)  # wait for JS render
-            soup = BeautifulSoup(driver.page_source, "lxml")
-            return _extract(soup)
-        finally:
-            driver.quit()  # always close to free memory
     except Exception:
         return None
 
