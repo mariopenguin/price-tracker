@@ -236,6 +236,13 @@ async def _bot_main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _handle_text))
 
     async with app:
+        await app.bot.set_my_commands([
+            ("lista",    "📦 Ver todos tus productos"),
+            ("add",      "➕ Añadir producto por URL"),
+            ("precio",   "💶 Ver precio actual de un producto"),
+            ("borrar",   "🗑️ Eliminar un producto"),
+            ("ayuda",    "📋 Ver todos los comandos"),
+        ])
         await app.start()
         await app.updater.start_polling()  # no stop_signals — not a valid param here
         logger.info("Telegram bot started (polling)")
