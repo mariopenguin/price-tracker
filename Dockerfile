@@ -2,7 +2,6 @@ FROM python:3.11-slim-bullseye
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ libffi-dev python3-dev \
-    libxml2-dev libxslt1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # /srv holds the project root so "from app.x import y" imports work

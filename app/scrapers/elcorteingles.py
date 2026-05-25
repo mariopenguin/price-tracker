@@ -15,7 +15,7 @@ def scrape(url: str) -> Optional[ScrapeResult]:
         if resp.status_code != 200:
             return None
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(resp.text, "lxml")
+        soup = BeautifulSoup(resp.text, "html.parser")
         result = _try_jsonld(soup)
         if result:
             return result

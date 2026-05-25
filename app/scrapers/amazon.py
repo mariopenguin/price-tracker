@@ -24,7 +24,7 @@ def scrape(url: str) -> Optional[ScrapeResult]:
         if resp.status_code != 200:
             return None
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(resp.text, "lxml")
+        soup = BeautifulSoup(resp.text, "html.parser")
 
         title_el = soup.find(id="productTitle")
         name = title_el.get_text(strip=True) if title_el else "Producto Amazon"
