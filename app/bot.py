@@ -231,7 +231,7 @@ def run_bot() -> None:
         app.add_handler(CommandHandler("borrar", _borrar))
         app.add_handler(CommandHandler("ayuda", _ayuda))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _handle_text))
-        await app.run_polling(close_loop=False)
+        await app.run_polling(close_loop=False, stop_signals=None)
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
