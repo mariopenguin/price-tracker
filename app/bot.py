@@ -217,10 +217,12 @@ async def _ayuda(update, context):
 async def _bot_main() -> None:
     """Coroutine that runs the bot using PTB's low-level API.
 
-    run_polling() internally calls asyncio.run() which conflicts with an
-    already-running loop. Instead we use app.start() + updater.start_polling()
-    directly on our own event loop and await a Future that never resolves
-    (the daemon thread is killed when the process exits).
+    Avoids run_polling() (which calls asyncio.run() internally and conflicts
+    with our own loop). Uses app.start() + updater.start_polling() directly.
+    Note: stop_signals only exists on Application.run_polling(), NOT on
+    Updater.start_polling() — passing it there raises TypeError.
+    await asyncio.Future() keeps the coroutine alive; daemon thread is killed
+    when the process exits.
     """
     from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
@@ -235,7 +237,7 @@ async def _bot_main() -> None:
 
     async with app:
         await app.start()
-        await app.updater.start_polling(stop_signals=None)
+        await app.updater.start_polling()  # no stop_signals — not a valid param here
         logger.info("Telegram bot started (polling)")
         await asyncio.Future()  # run forever — daemon thread killed on process exit
 
@@ -245,15 +247,10 @@ def run_bot() -> None:
     if not settings.telegram_bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN not set — Telegram bot disabled.")
         return
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(_bot_main())
+        asyncio.run(_bot_main())  # creates and manages its own event loop cleanly
     except Exception as e:
         logger.error(f"Telegram bot crashed: {e}")
-    finally:
-        loop.close()
 
 
 def start_bot_thread() -> None:
