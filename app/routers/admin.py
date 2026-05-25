@@ -2,16 +2,14 @@ import uuid
 
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
 from app.models import User, InviteCode
-from app.dependencies import require_admin
+from app.dependencies import require_admin, templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/admin", response_class=HTMLResponse)

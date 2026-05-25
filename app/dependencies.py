@@ -1,10 +1,14 @@
+from pathlib import Path
 from typing import Optional
 from fastapi import Request, Depends, HTTPException
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.auth import decode_access_token
 from app.database import get_db
 from app.models import User
+
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 async def get_current_user(

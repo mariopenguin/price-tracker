@@ -1,6 +1,7 @@
 import uuid
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -65,7 +66,7 @@ async def _create_first_admin() -> None:
 
 
 app = FastAPI(lifespan=lifespan, title="Price Tracker")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 from app.routers import auth, products, admin, settings as settings_router  # noqa: E402
 
@@ -73,3 +74,7 @@ app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(admin.router)
 app.include_router(settings_router.router)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8766, reload=True)

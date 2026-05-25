@@ -1,0 +1,22 @@
+# Environment
+.env
+
+# Database
+data/*
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# VS Code
+.vscode/
+
+# Playwright
+playwright-report/
+test-results/

@@ -3,16 +3,15 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
 from app.models import User, InviteCode
 from app.auth import hash_password, verify_password, create_access_token
+from app.dependencies import templates
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/login", response_class=HTMLResponse)

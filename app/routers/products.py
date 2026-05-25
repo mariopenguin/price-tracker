@@ -1,17 +1,15 @@
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import User, Product, PriceHistory
-from app.dependencies import require_user
+from app.dependencies import require_user, templates
 from app.scrapers import scraper_for
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
 MAX_PRODUCTS = 100
 

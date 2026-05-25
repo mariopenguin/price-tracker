@@ -11,8 +11,12 @@ HEADERS = {
 
 
 def scrape(url: str) -> Optional[ScrapeResult]:
-    """requests + BS4: JSON-LD, microdata, Open Graph."""
-    return _scrape_with_requests(url)
+    """requests + BS4 first; falls back to headless browser if no price found."""
+    result = _scrape_with_requests(url)
+    if result is None:
+        from app.scrapers.js_scraper import scrape as js_scrape
+        result = js_scrape(url)
+    return result
 
 
 def _scrape_with_requests(url: str) -> Optional[ScrapeResult]:

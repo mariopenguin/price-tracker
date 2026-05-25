@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import User
-from app.dependencies import require_user
+from app.dependencies import require_user, templates
 from app.auth import hash_password, verify_password
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/settings", response_class=HTMLResponse)

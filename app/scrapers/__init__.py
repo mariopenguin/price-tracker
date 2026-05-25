@@ -15,6 +15,8 @@ def scraper_for(url: str) -> Callable:
         from app.scrapers.elcorteingles import scrape
     elif "ebay.es" in domain or "ebay.com" in domain:
         from app.scrapers.ebay import scrape
+    elif "aliexpress.com" in domain:
+        from app.scrapers.js_scraper import scrape
     else:
         from app.scrapers.generic import scrape
     return scrape

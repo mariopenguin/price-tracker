@@ -27,7 +27,7 @@ async def _check_all_products_async() -> None:
         result = await db.execute(select(Product).where(Product.is_active == True))
         products = result.scalars().all()
 
-    # Process known-domain products first, then generic (Selenium) ones
+    # Process known-domain products first, then generic/browser-based ones
     standard = [p for p in products if any(d in urlparse(p.url).netloc for d in KNOWN_DOMAINS)]
     generic = [p for p in products if p not in standard]
 
