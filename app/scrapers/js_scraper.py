@@ -1,4 +1,5 @@
 import os
+import signal
 import logging
 import re
 import threading
@@ -8,6 +9,9 @@ from app.scrapers.base import ScrapeResult
 
 _browser_lock = threading.Lock()
 logger = logging.getLogger(__name__)
+
+# Reap zombie child processes automatically (chromium subprocesos muertos)
+signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
 # Chromedriver paths — ordered by platform
 CHROMEDRIVER_PATHS = [
@@ -27,11 +31,29 @@ CHROMIUM_PATHS = [
 
 BROWSER_ARGS = [
     "--headless",
-    "--no-sandbox",           # requerido en Pi y Docker
-    "--disable-dev-shm-usage",  # /dev/shm pequeño en Pi
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
     "--disable-gpu",
     "--disable-extensions",
     "--mute-audio",
+    "--window-size=1920,1080",
+]
+
+PRICE_SELECTORS = [
+    "[itemprop='price']",
+    "[data-testid='price']",
+    "[data-pl='product-price']",
+    ".product-price-value",
+    ".price-current",
+    ".uniform-banner-box-price",
+    "[class*='price']",
+]
+
+NAME_SELECTORS = [
+    "[itemprop='name']",
+    "[data-pl='product-title']",
+    ".product-title",
+    "h1",
 ]
 
 # Detectar selenium una sola vez al importar
@@ -39,6 +61,9 @@ try:
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.common.by import By
     _SELENIUM_AVAILABLE = True
 except ImportError:
     _SELENIUM_AVAILABLE = False
@@ -64,23 +89,6 @@ def _parse_price(text: str) -> float:
     return float(clean)
 
 
-PRICE_SELECTORS = [
-    "[itemprop='price']",
-    "[data-testid='price']",
-    "[data-pl='product-price']",
-    ".product-price-value",
-    ".price-current",
-    ".uniform-banner-box-price",
-]
-
-NAME_SELECTORS = [
-    "[itemprop='name']",
-    "[data-pl='product-title']",
-    ".product-title",
-    "h1",
-]
-
-
 def scrape(url: str) -> Optional[ScrapeResult]:
     if not _SELENIUM_AVAILABLE:
         return None
@@ -102,8 +110,6 @@ def scrape(url: str) -> Optional[ScrapeResult]:
     if chromium_path:
         options.binary_location = chromium_path
 
-    # Si hay chromedriver en paths del sistema úsalo explícitamente;
-    # si no, selenium-manager lo descarga automáticamente (funciona en Mac/amd64)
     chromedriver_path = _find(CHROMEDRIVER_PATHS)
     service = Service(executable_path=chromedriver_path) if chromedriver_path else Service()
 
@@ -111,9 +117,9 @@ def scrape(url: str) -> Optional[ScrapeResult]:
         driver = None
         try:
             driver = webdriver.Chrome(service=service, options=options)
-            driver.set_page_load_timeout(30)
+            driver.set_page_load_timeout(60)
 
-            # Ocultar que es un navegador automatizado antes de cargar la página
+            # Ocultar automatización antes de cargar la página
             try:
                 driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
                     "source": """
@@ -127,8 +133,18 @@ def scrape(url: str) -> Optional[ScrapeResult]:
 
             driver.get(url)
 
-            import time
-            time.sleep(6)  # Pi es más lenta; dar tiempo al JS
+            # Esperar hasta que aparezca un elemento de precio (máx 25s)
+            # Si no aparece ninguno, continuar igualmente con lo que haya
+            try:
+                WebDriverWait(driver, 25).until(
+                    EC.any_of(*[
+                        EC.presence_of_element_located((By.CSS_SELECTOR, sel))
+                        for sel in PRICE_SELECTORS
+                    ])
+                )
+                logger.info("js_scraper: elemento de precio detectado en el DOM")
+            except Exception:
+                logger.warning("js_scraper: timeout esperando precio, intentando extraer igualmente")
 
             # Estrategia 1: extracción genérica sobre el HTML renderizado
             soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -170,4 +186,7 @@ def scrape(url: str) -> Optional[ScrapeResult]:
             return None
         finally:
             if driver:
-                driver.quit()
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
