@@ -70,6 +70,8 @@ async def add_product(
             },
         )
 
+    from app.scrapers import normalize_url
+    url = normalize_url(url)
     scrape_fn = scraper_for(url)
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, scrape_fn, url)
