@@ -91,6 +91,12 @@ def scrape(url: str) -> Optional[ScrapeResult]:
     options = Options()
     for arg in BROWSER_ARGS:
         options.add_argument(arg)
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
 
     chromium_path = _find(CHROMIUM_PATHS)
     if chromium_path:
@@ -106,10 +112,23 @@ def scrape(url: str) -> Optional[ScrapeResult]:
         try:
             driver = webdriver.Chrome(service=service, options=options)
             driver.set_page_load_timeout(30)
+
+            # Ocultar que es un navegador automatizado antes de cargar la página
+            try:
+                driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                    "source": """
+                        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+                        window.chrome = { runtime: {} };
+                    """
+                })
+            except Exception:
+                pass  # CDP no disponible en versiones antiguas de Chromium
+
             driver.get(url)
 
             import time
-            time.sleep(3)  # esperar renderizado JS
+            time.sleep(6)  # Pi es más lenta; dar tiempo al JS
 
             # Estrategia 1: extracción genérica sobre el HTML renderizado
             soup = BeautifulSoup(driver.page_source, "html.parser")
