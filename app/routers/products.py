@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +71,8 @@ async def add_product(
         )
 
     scrape_fn = scraper_for(url)
-    result = scrape_fn(url)
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, scrape_fn, url)
     name = result.name if result else "Producto"
     price = result.price if result else None
     image = result.image_url if result else None

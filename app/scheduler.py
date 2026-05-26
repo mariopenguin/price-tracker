@@ -48,9 +48,10 @@ async def _scrape_product(product_id: int, url: str) -> None:
 
     scrape_fn = scraper_for(url)
     scrape_result = None
+    loop = asyncio.get_event_loop()
     for attempt in range(2):
         try:
-            scrape_result = scrape_fn(url)
+            scrape_result = await loop.run_in_executor(None, scrape_fn, url)
             if scrape_result:
                 break
         except Exception as e:
