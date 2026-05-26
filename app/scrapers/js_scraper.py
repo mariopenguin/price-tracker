@@ -7,56 +7,51 @@ from typing import Optional
 from app.scrapers.base import ScrapeResult
 
 _browser_lock = threading.Lock()
-
 logger = logging.getLogger(__name__)
 
-# Detectar disponibilidad de playwright una sola vez al importar
-try:
-    import playwright  # noqa: F401
-    _PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    _PLAYWRIGHT_AVAILABLE = False
-    logger.warning("Playwright no está instalado — el scraping JS está desactivado en esta arquitectura.")
+# Chromedriver paths — ordered by platform
+CHROMEDRIVER_PATHS = [
+    "/usr/bin/chromedriver",                     # Debian Docker (chromium-driver)
+    "/usr/lib/chromium-browser/chromedriver",    # Raspberry Pi OS (chromium-chromedriver)
+    "/usr/lib/chromium/chromedriver",            # Debian native
+]
 
-# System Chromium paths — Playwright's bundled binary has no ARM32 build
-SYSTEM_CHROMIUM_PATHS = [
-    "/usr/bin/chromium-browser",  # Raspberry Pi OS
-    "/usr/bin/chromium",          # Debian / Ubuntu
-    "/usr/bin/google-chrome",
+# Chromium/Chrome binary paths
+CHROMIUM_PATHS = [
+    "/usr/bin/chromium-browser",                                      # Raspberry Pi OS
+    "/usr/bin/chromium",                                              # Debian / Ubuntu
+    "/usr/bin/google-chrome",                                         # Linux Chrome
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",            # macOS Chromium
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",  # macOS Chrome
 ]
 
 BROWSER_ARGS = [
-    "--no-sandbox",           # required on Pi (no user namespace support)
-    "--disable-dev-shm-usage",  # /dev/shm is tiny on Pi; use /tmp instead
+    "--headless",
+    "--no-sandbox",           # requerido en Pi y Docker
+    "--disable-dev-shm-usage",  # /dev/shm pequeño en Pi
     "--disable-gpu",
-    "--disable-software-rasterizer",
     "--disable-extensions",
     "--mute-audio",
 ]
 
-# Generic CSS selectors tried in order when HTML extraction fails
-PRICE_SELECTORS = [
-    "[itemprop='price']",
-    "[data-testid='price']",
-    "[data-pl='product-price']",
-    ".product-price-value",
-    ".price-current",
-    ".uniform-banner-box-price",
-    "[class*='price--'][class*='uniform']",
-]
-
-NAME_SELECTORS = [
-    "[itemprop='name']",
-    "[data-pl='product-title']",
-    ".product-title",
-    "h1",
-]
+# Detectar selenium una sola vez al importar
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
+    _SELENIUM_AVAILABLE = True
+except ImportError:
+    _SELENIUM_AVAILABLE = False
+    logger.warning(
+        "Selenium no está instalado — el scraping JS está desactivado. "
+        "Instálalo con: pip install selenium"
+    )
 
 
-def _system_chromium() -> Optional[str]:
-    for path in SYSTEM_CHROMIUM_PATHS:
-        if os.path.exists(path):
-            return path
+def _find(paths: list) -> Optional[str]:
+    for p in paths:
+        if os.path.exists(p):
+            return p
     return None
 
 
@@ -69,81 +64,91 @@ def _parse_price(text: str) -> float:
     return float(clean)
 
 
+PRICE_SELECTORS = [
+    "[itemprop='price']",
+    "[data-testid='price']",
+    "[data-pl='product-price']",
+    ".product-price-value",
+    ".price-current",
+    ".uniform-banner-box-price",
+]
+
+NAME_SELECTORS = [
+    "[itemprop='name']",
+    "[data-pl='product-title']",
+    ".product-title",
+    "h1",
+]
+
+
 def scrape(url: str) -> Optional[ScrapeResult]:
-    chromium_path = _system_chromium()
-    if not chromium_path:
-        logger.error(
-            "No system Chromium found. Install it with: sudo apt install chromium-browser"
-        )
+    if not _SELENIUM_AVAILABLE:
         return None
 
-    if not _PLAYWRIGHT_AVAILABLE:
-        return None
+    from bs4 import BeautifulSoup
+    from app.scrapers.generic import _extract
 
-    try:
-        from playwright.sync_api import sync_playwright
-        from bs4 import BeautifulSoup
-        from app.scrapers.generic import _extract
-    except ImportError as e:
-        logger.warning(f"js_scraper: dependencia no disponible — {e}")
-        return None
+    options = Options()
+    for arg in BROWSER_ARGS:
+        options.add_argument(arg)
+
+    chromium_path = _find(CHROMIUM_PATHS)
+    if chromium_path:
+        options.binary_location = chromium_path
+
+    # Si hay chromedriver en paths del sistema úsalo explícitamente;
+    # si no, selenium-manager lo descarga automáticamente (funciona en Mac/amd64)
+    chromedriver_path = _find(CHROMEDRIVER_PATHS)
+    service = Service(executable_path=chromedriver_path) if chromedriver_path else Service()
 
     with _browser_lock:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                executable_path=chromium_path,
-                headless=True,
-                args=BROWSER_ARGS,
-            )
-            try:
-                context = browser.new_context(
-                    user_agent=(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
-                    ),
-                    locale="es-ES",
-                )
-                page = context.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-                page.wait_for_timeout(3_000)  # let JS render prices
+        driver = None
+        try:
+            driver = webdriver.Chrome(service=service, options=options)
+            driver.set_page_load_timeout(30)
+            driver.get(url)
 
-                # Strategy 1: reuse generic extractor on fully rendered HTML
-                soup = BeautifulSoup(page.content(), "html.parser")
-                result = _extract(soup)
-                if result:
-                    return result
+            import time
+            time.sleep(3)  # esperar renderizado JS
 
-                # Strategy 2: query live DOM with known CSS selectors
-                price: Optional[float] = None
-                for selector in PRICE_SELECTORS:
-                    el = page.query_selector(selector)
-                    if not el:
-                        continue
-                    raw = el.get_attribute("content") or el.inner_text()
-                    try:
-                        price = _parse_price(raw)
-                        break
-                    except Exception:
-                        continue
+            # Estrategia 1: extracción genérica sobre el HTML renderizado
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            result = _extract(soup)
+            if result:
+                return result
 
-                if price is None:
-                    logger.warning(f"js_scraper: no price found for {url}")
-                    return None
+            # Estrategia 2: selectores CSS en el DOM en vivo
+            price: Optional[float] = None
+            for selector in PRICE_SELECTORS:
+                els = driver.find_elements("css selector", selector)
+                if not els:
+                    continue
+                raw = els[0].get_attribute("content") or els[0].text
+                try:
+                    price = _parse_price(raw)
+                    break
+                except Exception:
+                    continue
 
-                name = "Producto"
-                for selector in NAME_SELECTORS:
-                    el = page.query_selector(selector)
-                    if el:
-                        name = el.inner_text().strip()
-                        break
-
-                og_image = page.query_selector("meta[property='og:image']")
-                image_url = og_image.get_attribute("content") if og_image else None
-
-                return ScrapeResult(price=price, currency="EUR", name=name, image_url=image_url)
-
-            except Exception as e:
-                logger.error(f"js_scraper failed for {url}: {e}")
+            if price is None:
+                logger.warning(f"js_scraper: precio no encontrado en {url}")
                 return None
-            finally:
-                browser.close()
+
+            name = "Producto"
+            for selector in NAME_SELECTORS:
+                els = driver.find_elements("css selector", selector)
+                if els:
+                    name = els[0].text.strip()
+                    break
+
+            og_image = driver.find_elements("css selector", "meta[property='og:image']")
+            image_url = og_image[0].get_attribute("content") if og_image else None
+
+            return ScrapeResult(price=price, currency="EUR", name=name, image_url=image_url)
+
+        except Exception as e:
+            logger.error(f"js_scraper falló para {url}: {e}")
+            return None
+        finally:
+            if driver:
+                driver.quit()

@@ -2,20 +2,14 @@ FROM python:3.11-slim-bullseye
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ libffi-dev python3-dev \
-    # Chromium for Playwright (amd64 Docker; Pi uses system chromium instead)
+    # Chromium + chromedriver para selenium (disponible en amd64 y ARM32)
     chromium chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
 # /srv holds the project root so "from app.x import y" imports work
 WORKDIR /srv
-# Tell Playwright to skip downloading its own browser — we use system Chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# Playwright no tiene wheel para ARM32; el intento falla silenciosamente.
-# En amd64 se instala correctamente y activa el scraper JS.
-RUN pip install --no-cache-dir playwright || echo "playwright no disponible en esta arquitectura, js_scraper desactivado"
 
 RUN useradd -m -u 1000 appuser
 USER appuser
