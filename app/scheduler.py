@@ -44,7 +44,7 @@ async def _scrape_product(product_id: int, url: str) -> None:
     from app.scrapers import scraper_for
     from app.notifier import should_notify, format_notification, send_telegram_message
     from app.models import User
-    from sqlalchemy import select, func
+    from sqlalchemy import select
 
     scrape_fn = scraper_for(url)
     scrape_result = None
@@ -69,17 +69,7 @@ async def _scrape_product(product_id: int, url: str) -> None:
         old_price = float(product.current_price) if product.current_price else None
         new_price = scrape_result.price
 
-        today = datetime.now(timezone.utc).date().isoformat()
-        existing = await db.execute(
-            select(PriceHistory)
-            .where(PriceHistory.product_id == product_id)
-            .where(func.date(PriceHistory.recorded_at) == today)
-        )
-        today_record = existing.scalar_one_or_none()
-        if today_record:
-            today_record.price = new_price
-        else:
-            db.add(PriceHistory(product_id=product.id, price=new_price))
+        db.add(PriceHistory(product_id=product.id, price=new_price))
 
         product.current_price = new_price
         product.last_checked_at = datetime.now(timezone.utc)
