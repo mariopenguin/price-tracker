@@ -11,7 +11,11 @@ _browser_lock = threading.Lock()
 logger = logging.getLogger(__name__)
 
 # Reap zombie child processes automatically (chromium subprocesos muertos)
-signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+# Solo funciona en el hilo principal; ignorar si se importa desde un worker thread
+try:
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+except ValueError:
+    pass
 
 # Chromedriver paths — ordered by platform
 CHROMEDRIVER_PATHS = [
