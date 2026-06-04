@@ -301,7 +301,23 @@ async def _send_historial(message, chat_id: str, product_id: int):
         lines.append(f"\n{_trend(prices)} {_diff_str(diff, pct)} en 7 días")
     lines.append(f"🏷️ Mín: {_fmt(lo)}  |  Máx: {_fmt(hi)}")
 
-    await message.reply_text("\n".join(lines), parse_mode="HTML")
+    text = "\n".join(lines)
+    MAX_LEN = 4096
+    if len(text) <= MAX_LEN:
+        await message.reply_text(text, parse_mode="HTML")
+    else:
+        chunks, current, current_len = [], [], 0
+        for line in lines:
+            if current_len + len(line) + 1 > MAX_LEN:
+                chunks.append("\n".join(current))
+                current, current_len = [line], len(line)
+            else:
+                current.append(line)
+                current_len += len(line) + 1
+        if current:
+            chunks.append("\n".join(current))
+        for chunk in chunks:
+            await message.reply_text(chunk, parse_mode="HTML")
 
 
 async def _send_alerta_menu(message, chat_id: str, product_id: int):
