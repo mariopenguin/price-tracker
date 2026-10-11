@@ -143,6 +143,21 @@ async def _get_product_with_history(chat_id: str, product_id: int, days: int = 7
         return user, product, history
 
 
+async def _get_failures(product_id: int, days: int = 7) -> list:
+    """Chequeos fallidos (sin precio) de los últimos N días, en orden cronológico."""
+    from app.database import SessionLocal
+    from app.models import PriceCheckFailure
+    from sqlalchemy import select
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    async with SessionLocal() as db:
+        r = await db.execute(
+            select(PriceCheckFailure)
+            .where(PriceCheckFailure.product_id == product_id, PriceCheckFailure.recorded_at >= since)
+            .order_by(PriceCheckFailure.recorded_at)
+        )
+        return r.scalars().all()
+
+
 async def _add_product(chat_id: str, url: str) -> Optional[str]:
     """Devuelve nombre del producto, 'LIMIT' si se alcanzó el límite, o None si el usuario no existe."""
     user = await _get_user_by_chat_id(chat_id)
@@ -250,6 +265,12 @@ async def _send_product_detail(message, chat_id: str, product_id: int):
     if product.last_checked_at:
         ts = product.last_checked_at.strftime("%d/%m %H:%M")
         lines.append(f"\n⏱️ <i>Último chequeo: {ts} UTC</i>")
+    failures = await _get_failures(product_id, days=7)
+    if failures:
+        last_fail = failures[-1].recorded_at
+        ok_at = product.last_checked_at
+        if not ok_at or last_fail.replace(tzinfo=None) > ok_at.replace(tzinfo=None):
+            lines.append(f"⚠️ <i>Último intento fallido: {last_fail.strftime('%d/%m %H:%M')} UTC — no se pudo leer el precio</i>")
 
     keyboard = [
         [
@@ -275,7 +296,8 @@ async def _send_historial(message, chat_id: str, product_id: int):
     if not product:
         await message.reply_text("❌ Producto no encontrado.")
         return
-    if not history:
+    failures = await _get_failures(product_id, days=7)
+    if not history and not failures:
         await message.reply_text(
             f"📊 <b>{product.name}</b>\n\n<i>Sin historial todavía — los precios se registran en cada chequeo automático.</i>",
             parse_mode="HTML",
@@ -283,23 +305,33 @@ async def _send_historial(message, chat_id: str, product_id: int):
         return
 
     prices = [float(h.price) for h in history]
-    lo, hi = min(prices), max(prices)
+    lo, hi = (min(prices), max(prices)) if prices else (0.0, 0.0)
+
+    # Precios y chequeos fallidos en una sola línea temporal
+    events = sorted([(h.recorded_at, h) for h in history] + [(f.recorded_at, f) for f in failures],
+                    key=lambda t: t[0])
+    last_ok = max((i for i, (_, x) in enumerate(events) if hasattr(x, "price")), default=-1)
 
     lines = [f"📊 <b>Historial 7 días</b>\n<i>{product.name}</i>\n"]
-    for i, h in enumerate(history):
-        dt = h.recorded_at
+    for i, (dt, x) in enumerate(events):
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         label = f"{_day_es(dt)} {dt.strftime('%d/%m')}"
-        bar = _bar(float(h.price), lo, hi)
-        suffix = " ← hoy" if i == len(history) - 1 else ""
-        lines.append(f"<code>{label}  {_fmt(h.price):>10}  {bar}{suffix}</code>")
+        if hasattr(x, "price"):
+            bar = _bar(float(x.price), lo, hi)
+            suffix = " ← hoy" if i == last_ok else ""
+            lines.append(f"<code>{label}  {_fmt(x.price):>10}  {bar}{suffix}</code>")
+        else:
+            lines.append(f"<code>{label} {dt.strftime('%H:%M')}</code>  ⚠️ <i>no se pudo actualizar</i>")
 
     if len(prices) >= 2:
         diff = prices[-1] - prices[0]
         pct = (diff / prices[0] * 100) if prices[0] else 0
         lines.append(f"\n{_trend(prices)} {_diff_str(diff, pct)} en 7 días")
-    lines.append(f"🏷️ Mín: {_fmt(lo)}  |  Máx: {_fmt(hi)}")
+    if prices:
+        lines.append(f"🏷️ Mín: {_fmt(lo)}  |  Máx: {_fmt(hi)}")
+    if failures:
+        lines.append(f"⚠️ {len(failures)} chequeo(s) fallido(s) en 7 días")
 
     text = "\n".join(lines)
     MAX_LEN = 4096

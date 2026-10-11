@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import User, Product, PriceHistory
+from app.models import User, Product, PriceHistory, PriceCheckFailure
 from app.dependencies import require_user, templates
 from app.scrapers import scraper_for
 
@@ -85,6 +85,8 @@ async def add_product(
 
     if price:
         db.add(PriceHistory(product_id=product.id, price=price))
+    else:
+        db.add(PriceCheckFailure(product_id=product.id, reason="No se pudo obtener el precio al añadir el producto"))
 
     await db.commit()
     return RedirectResponse(url="/", status_code=302)
@@ -100,13 +102,17 @@ async def product_detail(
     result = await db.execute(
         select(Product)
         .where(Product.id == product_id, Product.user_id == user.id)
-        .options(selectinload(Product.price_history))
+        .options(selectinload(Product.price_history), selectinload(Product.check_failures))
     )
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404)
 
     history = sorted(product.price_history, key=lambda h: h.recorded_at)
+    # Histórico mezclado: precios correctos y chequeos fallidos, del más reciente al más antiguo
+    events = [{"at": h.recorded_at, "price": float(h.price), "error": None} for h in history]
+    events += [{"at": f.recorded_at, "price": None, "error": f.reason} for f in product.check_failures]
+    events.sort(key=lambda e: e["at"], reverse=True)
     chart_labels = [h.recorded_at.strftime("%d/%m %H:%M") for h in history]
     chart_prices = [float(h.price) for h in history]
 
@@ -118,6 +124,7 @@ async def product_detail(
             "product": product,
             "chart_labels": chart_labels,
             "chart_prices": chart_prices,
+            "events": events,
         },
     )
 

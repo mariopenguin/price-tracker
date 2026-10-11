@@ -40,7 +40,7 @@ async def _check_all_products_async() -> None:
 
 async def _scrape_product(product_id: int, url: str) -> None:
     from app.database import SessionLocal
-    from app.models import Product, PriceHistory
+    from app.models import Product, PriceHistory, PriceCheckFailure
     from app.scrapers import scraper_for
     from app.notifier import should_notify, format_notification, send_telegram_message
     from app.models import User
@@ -48,6 +48,7 @@ async def _scrape_product(product_id: int, url: str) -> None:
 
     scrape_fn = scraper_for(url)
     scrape_result = None
+    last_error = None
     loop = asyncio.get_event_loop()
     for attempt in range(2):
         try:
@@ -55,10 +56,16 @@ async def _scrape_product(product_id: int, url: str) -> None:
             if scrape_result:
                 break
         except Exception as e:
+            last_error = str(e)
             logger.warning(f"Attempt {attempt + 1} failed for {url}: {e}")
 
     if not scrape_result:
         logger.error(f"Could not get price for {url}")
+        async with SessionLocal() as db:
+            if await db.get(Product, product_id):  # puede haberse borrado mientras tanto
+                reason = last_error or "No se pudo extraer el precio de la página"
+                db.add(PriceCheckFailure(product_id=product_id, reason=reason[:300]))
+                await db.commit()
         return
 
     async with SessionLocal() as db:

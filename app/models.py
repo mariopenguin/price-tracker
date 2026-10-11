@@ -59,6 +59,9 @@ class Product(Base):
     price_history: Mapped[list["PriceHistory"]] = relationship(
         back_populates="product", cascade="all, delete-orphan", order_by="PriceHistory.recorded_at"
     )
+    check_failures: Mapped[list["PriceCheckFailure"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", order_by="PriceCheckFailure.recorded_at"
+    )
 
 class PriceHistory(Base):
     __tablename__ = "price_history"
@@ -69,3 +72,15 @@ class PriceHistory(Base):
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     product: Mapped["Product"] = relationship(back_populates="price_history")
+
+
+class PriceCheckFailure(Base):
+    """Intento de actualización que no pudo obtener el precio (se muestra en el histórico)."""
+    __tablename__ = "price_check_failures"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    reason: Mapped[str] = mapped_column(String(300), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    product: Mapped["Product"] = relationship(back_populates="check_failures")

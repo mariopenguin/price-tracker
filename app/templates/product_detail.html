@@ -54,7 +54,7 @@
     <!-- Price history table -->
     <div class="history-card">
       <h2>Histórico de precios</h2>
-      {% if product.price_history %}
+      {% if events %}
       <div class="table-wrap">
         <table>
           <thead>
@@ -64,10 +64,14 @@
             </tr>
           </thead>
           <tbody>
-            {% for h in product.price_history | sort(attribute='recorded_at', reverse=True) %}
-            <tr>
-              <td>{{ h.recorded_at.strftime("%d/%m/%Y %H:%M") }}</td>
-              <td>{{ "%.2f"|format(h.price|float) }} €</td>
+            {% for e in events %}
+            <tr{% if e.error %} class="check-failed"{% endif %}>
+              <td>{{ e.at.strftime("%d/%m/%Y %H:%M") }}</td>
+              {% if e.error %}
+              <td>⚠️ No se pudo actualizar <span class="fail-reason">({{ e.error }})</span></td>
+              {% else %}
+              <td>{{ "%.2f"|format(e.price) }} €</td>
+              {% endif %}
             </tr>
             {% endfor %}
           </tbody>

@@ -614,3 +614,7 @@ a:hover { text-decoration: underline; }
   .form-card { margin: 1.5rem auto; padding: 1.5rem 1.25rem; }
   .product-grid { grid-template-columns: 1fr; }
 }
+
+/* Chequeos de precio fallidos en el histórico */
+.check-failed td { color: var(--warning); }
+.check-failed .fail-reason { color: var(--muted); font-size: 0.8rem; }
