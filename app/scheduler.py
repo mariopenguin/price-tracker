@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.config import settings
 
@@ -109,5 +109,8 @@ def create_scheduler() -> BackgroundScheduler:
         hours=settings.check_interval_hours,
         id="check_prices",
         replace_existing=True,
+        # Sin esto el primer chequeo tarda un intervalo entero en llegar tras cada arranque
+        # (la Pi se apaga a menudo y los precios quedaban días sin refrescar).
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=60),
     )
     return scheduler
